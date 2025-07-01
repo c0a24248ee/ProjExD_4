@@ -119,8 +119,8 @@ class Bird(pg.sprite.Sprite):
             self.image = pg.transform.laplacian(self.image)
             self.hyper_life -= 1
             #無敵状態中の画像変換、時間経過
-            if self.hyper_life < 0:
-                self.state = "normal"
+        if self.hyper_life < 0:
+            self.state = "normal"
         screen.blit(self.image, self.rect)
 
 
@@ -341,7 +341,7 @@ def main():
 
         for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():  # ビームと衝突した敵機リスト
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
-            score.value += 1000  # 10点アップ
+            score.value += 10  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # ビームと衝突した爆弾リスト
@@ -353,24 +353,16 @@ def main():
                 bomb.kill() # EMPで無効化されていたら起爆せず消す
             else:
                 bomb.kill()
-                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-                score.update(screen)
-                pg.display.update()
-                time.sleep(2)
-                return
-            #無敵中ゲームオーバーにならず爆弾処理＆スコア+1
-        for bomb in pg.sprite.spritecollide(bird, bombs, True):
-            if bird.state == "hyper":
-                print("hyper")
-                exps.add(Explosion(bomb, 50))
-                score.value += 1
-            if bird.state == "normal":
-                print("normal")
-                bird.change_img(8, screen)
-                score.update(screen)
-                pg.display.update()
-                time.sleep(2)
-                return
+                if bird.state == "hyper":  #無敵中ゲームオーバーにならず爆弾処理＆スコア+1
+                    exps.add(Explosion(bomb, 50))
+                    score.value += 1
+                if bird.state == "normal":
+                    bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                    score.update(screen)
+                    pg.display.update()
+                    time.sleep(2)
+                    return
+    
 
         bird.update(key_lst, screen)
         beams.update()
