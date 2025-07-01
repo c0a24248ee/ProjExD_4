@@ -335,7 +335,7 @@ def main():
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
             #無敵コマンド(スコア100以上)
-            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and score.value >= 100 :
+            if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT and score.value >= 0 :
                 bird.state = "hyper"
                 bird.hyper_life = 500
                 score.value -= 100
@@ -369,6 +369,7 @@ def main():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
         
+        print(bird.state)
         for bomb in pg.sprite.spritecollide(bird, bombs, False): # 自分で kill するため False 
             if hasattr(bomb, "state") and bomb.state == "inactive":
                 bomb.kill() # EMPで無効化されていたら起爆せず消す
@@ -383,25 +384,6 @@ def main():
                     pg.display.update()
                     time.sleep(2)
                     return
-    
-                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-                score.update(screen)
-                pg.display.update()
-                time.sleep(2)
-                return
-        
-        if len(gravitys) > 0:  # 追加機能2
-            for emy in emys:
-                exps.add(Explosion(emy, 100))
-                score.value += 10
-            for bomb in bombs:
-                exps.add(Explosion(bomb, 50))
-                score.value += 1
-            emys.empty()
-            bombs.empty()
-
-        gravitys.update()#追加機能2
-        gravitys.draw(screen)
 
         bird.update(key_lst, screen)
         beams.update()
