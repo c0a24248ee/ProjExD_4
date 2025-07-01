@@ -76,6 +76,9 @@ class Bird(pg.sprite.Sprite):
         self.state = "normal"
         self.hyper_life = -1
 
+
+        
+
     def change_img(self, num: int, screen: pg.Surface):
         """
         こうかとん画像を切り替え，画面に転送する
@@ -97,6 +100,10 @@ class Bird(pg.sprite.Sprite):
         else:
             self.speed = 10
 
+        if key_lst[pg.K_LSHIFT] :# 左Shiftキーが押されている場合は移動速度を速くする
+            self.speed = 20
+        else:
+            self.speed = 10
         sum_mv = [0, 0]
         for k, mv in __class__.delta.items():
             if key_lst[k]:
@@ -301,7 +308,7 @@ class Score:
     def __init__(self):
         self.font = pg.font.Font(None, 50)
         self.color = (0, 0, 255)
-        self.value = 0
+        self.value = 10000
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         self.rect = self.image.get_rect()
         self.rect.center = 100, HEIGHT-50
@@ -334,6 +341,40 @@ class EMP:
         now = pg.time.get_ticks() # 現在時刻を取得
         if now - self.start_time < self.duration: # 0.05秒未満の間だけ
             screen.blit(self.surface, (0, 0)) # 画面全体に半透明の黄色矩形を表示
+class NeoBeam(Beam):
+
+    def __init__(self, bird: Bird, angle0: float=0):
+        """
+        ビーム画像Surfaceを生成する
+        引数 bird：ビームを放つこうかとん
+        引数 angle0：ビームの放つ角度（デフォルトは0度）
+        """
+        super().__init__(bird)
+        self.bird = bird
+        base_angle = math.degrees(math.atan2(-bird.dire[1], bird.dire[0])) # こうかとんの向きに基づく角度
+        total_angle = base_angle + angle0 # こうかとんの向きに角度を加える
+        self.angle = angle0
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), total_angle, 1.0) # ビームの角度を設定
+        self.vx = math.cos(math.radians(total_angle)) # ビームのx方向速度
+        self.vy = -math.sin(math.radians(total_angle)) # ビームのy方向速度
+        self.rect = self.image.get_rect()
+        self.rect.centery = bird.rect.centery+bird.rect.height*self.vy # ビームのy座標をこうかとんの位置に基づく
+        self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx # ビームのx座標をこうかとんの位置に基づく
+
+    def gen_beams(self, num: int) -> list["NeoBeam"]:
+        """
+        このインスタンスを使って、角度をずらした複数ビームを生成する
+        引数 num：生成するビームの本数
+        戻り値：生成したビームのリスト
+        """
+        if num < 2: # ビームの本数１以下、現在のインスタンスを返す
+            return [self]
+        step = 100 // (num - 1) # ビームの角度の間隔
+        angles = list(range(-50, 51, step)) # -50度から50度までの角度リスト
+        beams = []
+        for a in angles:    # NeoBeamインスタンス生成
+            beams.append(self.__class__(self.bird, angle0=a)) #リストにappend
+        return beams 
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
@@ -342,6 +383,9 @@ def main():
     score = Score()
 
     bird = Bird(3, (900, 400))
+
+    neo_beam_instance = NeoBeam(bird)
+
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
@@ -360,7 +404,11 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN:
                 if event.key == pg.K_SPACE:
-                    beams.add(Beam(bird))
+                    if key_lst[pg.K_LSHIFT]:# 左Shiftキーが押されている場合はNeoBeam(複数)を放つ
+                        for b in neo_beam_instance.gen_beams(5):  # ビームを5本放つ
+                            beams.add(b)                    
+                    else: 
+                        beams.add(Beam(bird))
                 elif event.key == pg.K_s:  # 追加機能5
                     if score.value >= 50 and len(shields) == 0:
                         shields.add(Shield(bird, 400))
@@ -379,16 +427,17 @@ def main():
                 if score.value >= 20: # スコアが20点以上なら発動可能
                     score.value -= 20 # スコアを20点消費
                     emp = EMP(emys, bombs, screen) # EMPを発動し、敵と爆弾に効果を与える
+            if event.type == pg.KEYDOWN and event.key == pg.K_RETURN: #追加機能2
+                if score.value >= 200:
+                    gravitys.add(Gravity(400))
+                    score.value -= 200
 
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
         
-        if event.type == pg.KEYDOWN and event.key == pg.K_RETURN: #追加機能2
-                if score.value >= 200:
-                    gravitys.add(Gravity(400))
-                    score.value -= 200
+
 
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
@@ -407,7 +456,6 @@ def main():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
         
-        print(bird.state)
         for bomb in pg.sprite.spritecollide(bird, bombs, False): # 自分で kill するため False 
             if hasattr(bomb, "state") and bomb.state == "inactive":
                 bomb.kill() # EMPで無効化されていたら起爆せず消す
@@ -422,6 +470,16 @@ def main():
                     pg.display.update()
                     time.sleep(2)
                     return
+                
+        if len(gravitys) > 0:
+            for emy in emys:
+                exps.add(Explosion(emy, 100))
+                score.value += 10
+            for bomb in bombs:
+                exps.add(Explosion(bomb, 50))
+                score.value += 1
+            emys.empty()
+            bombs.empty()
 
         bird.update(key_lst, screen)
         beams.update()
@@ -435,6 +493,8 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+        gravitys.update() #追加機能2
+        gravitys.draw(screen)
         if emp is not None:
             emp.draw(screen) # EMP効果の可視化（黄色の透明矩形）
         pg.display.update()
